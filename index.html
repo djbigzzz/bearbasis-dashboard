@@ -53,10 +53,10 @@
     pointer-events: none;
   }
   .logo-img {
-    width: 80px;
-    height: 80px;
-    margin-bottom: 16px;
-    filter: drop-shadow(0 0 20px rgba(34,211,238,0.3));
+    width: 160px;
+    height: auto;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 0 30px rgba(34,211,238,0.3));
   }
   .header h1 {
     font-size: 2.5em;
@@ -304,8 +304,7 @@
 <!-- HEADER -->
 <div class="header">
   <!-- Replace src with your logo URL -->
-  <img class="logo-img" src="https://raw.githubusercontent.com/djbigzzz/bearbasis-dashboard/main/logo.png" alt="BearBasis" onerror="this.style.display='none'">
-  <h1><span class="bear">Bear</span><span class="basis">Basis</span></h1>
+  <img class="logo-img" src="https://raw.githubusercontent.com/djbigzzz/bearbasis-dashboard/main/logo.png" alt="BearBasis" onerror="this.outerHTML='<h1><span class=bear>Bear</span><span class=basis>Basis</span></h1>'">
   <div class="tagline">Your money adapts to the market. Automatically.</div>
   <div class="header-badges">
     <span class="badge badge-live"><span class="pulse"></span> Live Signals</span>
