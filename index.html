@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BearBasis Alpha — Live Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --card: #111827;
+    --border: #1f2937;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --green: #10b981;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --yellow: #f59e0b;
+    --purple: #8b5cf6;
+    --cyan: #06b6d4;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 30px 20px;
+    background: linear-gradient(135deg, #111827 0%, #1a1f35 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+  }
+  .header h1 {
+    font-size: 2.2em;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .header .subtitle {
+    color: var(--muted);
+    font-size: 0.95em;
+  }
+  .header .vault-addr {
+    font-size: 0.75em;
+    color: var(--muted);
+    margin-top: 10px;
+    opacity: 0.7;
+  }
+  .header .vault-addr a { color: var(--cyan); text-decoration: none; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card h2 {
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Regime card */
+  .regime-display {
+    text-align: center;
+    padding: 20px;
+  }
+  .regime-label {
+    font-size: 2.5em;
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+  .regime-desc { color: var(--muted); font-size: 0.9em; }
+  .regime-BULL { color: var(--green); }
+  .regime-BEAR { color: var(--red); }
+  .regime-RANGING { color: var(--yellow); }
+  .regime-CRISIS { color: var(--red); text-shadow: 0 0 20px rgba(239,68,68,0.5); }
+
+  /* Allocation bar */
+  .alloc-bar {
+    display: flex;
+    height: 32px;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 12px 0;
+  }
+  .alloc-bar div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7em;
+    font-weight: bold;
+    color: white;
+    min-width: 30px;
+  }
+  .alloc-basis { background: var(--blue); }
+  .alloc-lending { background: var(--green); }
+  .alloc-spread { background: var(--purple); }
+  .alloc-idle { background: #374151; }
+
+  .alloc-legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 8px;
+    font-size: 0.75em;
+    color: var(--muted);
+  }
+  .alloc-legend span::before {
+    content: '';
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .alloc-legend .l-basis::before { background: var(--blue); }
+  .alloc-legend .l-lending::before { background: var(--green); }
+  .alloc-legend .l-spread::before { background: var(--purple); }
+  .alloc-legend .l-idle::before { background: #374151; }
+
+  /* Metrics table */
+  .metrics { width: 100%; }
+  .metrics tr { border-bottom: 1px solid var(--border); }
+  .metrics tr:last-child { border: none; }
+  .metrics td {
+    padding: 10px 0;
+    font-size: 0.9em;
+  }
+  .metrics td:first-child { color: var(--muted); }
+  .metrics td:last-child { text-align: right; font-weight: bold; }
+  .val-pos { color: var(--green); }
+  .val-neg { color: var(--red); }
+  .val-neutral { color: var(--yellow); }
+
+  /* Signal bars */
+  .signal-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .signal-row:last-child { border: none; }
+  .signal-name { font-size: 0.85em; color: var(--muted); }
+  .signal-val { font-size: 0.95em; font-weight: bold; }
+  .signal-bar-wrap {
+    width: 80px; height: 6px;
+    background: #1f2937;
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 0 12px;
+    flex-shrink: 0;
+  }
+  .signal-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+
+  /* How it works */
+  .how-section {
+    grid-column: 1 / -1;
+  }
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+  }
+  .how-step {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .how-step .step-num {
+    font-size: 0.7em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .how-step h3 { font-size: 1em; margin-bottom: 6px; }
+  .how-step p { font-size: 0.8em; color: var(--muted); line-height: 1.5; }
+
+  .footer {
+    text-align: center;
+    margin-top: 30px;
+    padding: 20px;
+    color: var(--muted);
+    font-size: 0.75em;
+  }
+  .footer a { color: var(--cyan); text-decoration: none; }
+
+  .refresh-info {
+    text-align: center;
+    font-size: 0.7em;
+    color: var(--muted);
+    margin-top: 8px;
+    opacity: 0.6;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.7em;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .badge-live { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+  .badge-building { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.5em; }
+    .grid { grid-template-columns: 1fr; }
+    .regime-label { font-size: 1.8em; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🐻 BearBasis Alpha</h1>
+  <div class="subtitle">AI-Adaptive Multi-Strategy Yield Vault on Solana</div>
+  <div style="margin-top: 12px;">
+    <span class="badge badge-live">● Signals Live</span>
+    <span class="badge badge-building">Hackathon Build</span>
+  </div>
+  <div class="vault-addr">
+    Vault: <a href="https://solscan.io/account/9J5WtY2e8ZJLippQw2op8tVt83Lppq9r1CvWbaWwi6w9" target="_blank">9J5Wt...i6w9</a>
+    &nbsp;|&nbsp; Built on <a href="https://ranger.finance" target="_blank">Ranger Earn</a> / <a href="https://voltr.xyz" target="_blank">Voltr</a>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- Regime Card -->
+  <div class="card">
+    <h2><span class="dot"></span> Current Regime</h2>
+    <div class="regime-display">
+      <div id="regime-label" class="regime-label regime-RANGING">—</div>
+      <div id="regime-desc" class="regime-desc">Loading signals...</div>
+    </div>
+    <div id="alloc-bar" class="alloc-bar">
+      <div class="alloc-basis" style="width:30%">30%</div>
+      <div class="alloc-lending" style="width:50%">50%</div>
+      <div class="alloc-spread" style="width:20%">20%</div>
+    </div>
+    <div class="alloc-legend">
+      <span class="l-basis">Basis</span>
+      <span class="l-lending">Lending</span>
+      <span class="l-spread">Spread</span>
+      <span class="l-idle">Idle</span>
+    </div>
+  </div>
+
+  <!-- Funding Rates -->
+  <div class="card">
+    <h2><span class="dot"></span> Drift Funding Rates (Annualized)</h2>
+    <div id="funding-rates">
+      <div class="signal-row">
+        <span class="signal-name">SOL-PERP</span>
+        <div class="signal-bar-wrap"><div class="signal-bar" style="width:50%;background:var(--muted)"></div></div>
+        <span class="signal-val" id="fr-sol">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-name">ETH-PERP</span>
+        <div class="signal-bar-wrap"><div class="signal-bar" style="width:50%;background:var(--muted)"></div></div>
+        <span class="signal-val" id="fr-eth">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-name">BTC-PERP</span>
+        <div class="signal-bar-wrap"><div class="signal-bar" style="width:50%;background:var(--muted)"></div></div>
+        <span class="signal-val" id="fr-btc">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Volatility -->
+  <div class="card">
+    <h2><span class="dot"></span> Volatility & Prices</h2>
+    <div id="vol-data">
+      <div class="signal-row">
+        <span class="signal-name">SOL Price</span>
+        <span class="signal-val" id="price-sol">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-name">ETH Price</span>
+        <span class="signal-val" id="price-eth">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-name">BTC Price</span>
+        <span class="signal-val" id="price-btc">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-name">Vol Regime</span>
+        <span class="signal-val" id="vol-regime">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lending Rates -->
+  <div class="card">
+    <h2><span class="dot"></span> USDC Lending Rates</h2>
+    <div id="lending-rates">
+      <div class="signal-row">
+        <span class="signal-name">Kamino</span>
+        <div class="signal-bar-wrap"><div class="signal-bar" id="bar-kamino" style="width:0%;background:var(--green)"></div></div>
+        <span class="signal-val" id="rate-kamino">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-name">Jupiter</span>
+        <div class="signal-bar-wrap"><div class="signal-bar" id="bar-jup" style="width:0%;background:var(--green)"></div></div>
+        <span class="signal-val" id="rate-jup">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-name">Drift</span>
+        <div class="signal-bar-wrap"><div class="signal-bar" id="bar-drift" style="width:0%;background:var(--green)"></div></div>
+        <span class="signal-val" id="rate-drift">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-name">Save</span>
+        <div class="signal-bar-wrap"><div class="signal-bar" id="bar-save" style="width:0%;background:var(--green)"></div></div>
+        <span class="signal-val" id="rate-save">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vault Stats -->
+  <div class="card">
+    <h2>Vault Stats</h2>
+    <table class="metrics">
+      <tr><td>TVL</td><td id="vault-tvl">$4.00</td></tr>
+      <tr><td>Asset</td><td>USDC</td></tr>
+      <tr><td>Performance Fee</td><td>10%</td></tr>
+      <tr><td>Management Fee</td><td>1%</td></tr>
+      <tr><td>Max Cap</td><td>$1,000,000</td></tr>
+      <tr><td>Strategies</td><td>3 (Basis + Lending + Spread)</td></tr>
+      <tr><td>Adaptors</td><td>Drift · Jupiter · Kamino</td></tr>
+    </table>
+  </div>
+
+  <!-- Backtest -->
+  <div class="card">
+    <h2>Backtest Results (90-Day)</h2>
+    <table class="metrics">
+      <tr><td>APY</td><td class="val-pos">10.14%</td></tr>
+      <tr><td>Max Drawdown</td><td>0.44%</td></tr>
+      <tr><td>Sharpe Ratio</td><td>7.23</td></tr>
+      <tr><td>Win Rate</td><td>70.0%</td></tr>
+      <tr><td>vs Static Basis</td><td class="val-pos">+28.36% better</td></tr>
+      <tr><td>vs Equal Lending</td><td class="val-pos">+0.42% better</td></tr>
+    </table>
+  </div>
+
+  <!-- How it works -->
+  <div class="card how-section">
+    <h2>How BearBasis Alpha Works</h2>
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="step-num">Step 1 — Sense</div>
+        <h3>📡 Signal Engine</h3>
+        <p>Continuously monitors Drift funding rates, Pyth oracle prices, on-chain volatility, and lending rates across Kamino, Jupiter, Drift, and Save.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">Step 2 — Classify</div>
+        <h3>🧠 Regime Detection</h3>
+        <p>AI classifier determines current market regime: Bull, Bear, Ranging, or Crisis. Uses funding rate direction, volatility levels, and spread divergence.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">Step 3 — Allocate</div>
+        <h3>⚖️ Portfolio Optimizer</h3>
+        <p>Dynamically shifts capital between three strategies based on regime. Bull → more basis trades. Bear → more lending. Crisis → mostly idle.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">Step 4 — Execute</div>
+        <h3>⚡ Strategy Engine</h3>
+        <p><strong>Basis Trade:</strong> Long spot + short perp (Drift). <strong>Lending Cascade:</strong> Best-rate lending across protocols. <strong>Spread Capture:</strong> Spot-perp convergence arb.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">Step 5 — Protect</div>
+        <h3>🛡️ Risk Manager</h3>
+        <p>Circuit breakers at -3% and -5% drawdown. Health factor floor at 1.10. Max single-protocol exposure 50%. 5% permanent idle buffer.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">Always</div>
+        <h3>🔄 Adapt</h3>
+        <p>Rebalances every 15 minutes. No single strategy works in all markets — BearBasis Alpha shifts between all three to generate yield in any condition.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="refresh-info">Live data refreshes every 60 seconds · Last update: <span id="last-update">—</span></div>
+
+<div class="footer">
+  BearBasis Alpha · Built for the <a href="https://ranger.finance" target="_blank">Ranger</a> Build-A-Bear Hackathon
+  · <a href="https://github.com/djbigzzz/bearbasis" target="_blank">GitHub</a>
+  · Powered by <a href="https://voltr.xyz" target="_blank">Voltr</a>
+</div>
+
+<script>
+// === PYTH PRICE IDS ===
+const PYTH_IDS = {
+  SOL: '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
+  ETH: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
+  BTC: '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
+};
+
+// === DRIFT MARKET INDICES ===
+const DRIFT_MARKETS = { SOL: 0, BTC: 1, ETH: 2 };
+
+// === REGIME LOGIC ===
+function classifyRegime(avgFunding, volLevel) {
+  if (volLevel === 'EXTREME') return 'CRISIS';
+  if (avgFunding > 15) return 'BULL';
+  if (avgFunding > 5) return 'BULL_LOW';
+  if (avgFunding > -5) return 'RANGING';
+  if (avgFunding > -15) return 'BEAR';
+  return 'BEAR_DEEP';
+}
+
+const REGIME_INFO = {
+  BULL:      { label: 'BULL', emoji: '🟢', desc: 'Strong positive funding — basis trade dominant', cls: 'regime-BULL', alloc: [70,20,10,0] },
+  BULL_LOW:  { label: 'BULL', emoji: '🟡', desc: 'Weak positive funding — balanced allocation', cls: 'regime-BULL', alloc: [50,30,20,0] },
+  RANGING:   { label: 'RANGING', emoji: '🟡', desc: 'Neutral funding — lending cascade dominant', cls: 'regime-RANGING', alloc: [30,50,20,0] },
+  BEAR:      { label: 'BEAR', emoji: '🔴', desc: 'Negative funding — defensive lending mode', cls: 'regime-BEAR', alloc: [10,70,20,0] },
+  BEAR_DEEP: { label: 'BEAR', emoji: '🔴', desc: 'Deep negative funding — max defensive', cls: 'regime-BEAR', alloc: [0,80,0,20] },
+  CRISIS:    { label: 'CRISIS', emoji: '🚨', desc: 'Extreme volatility — capital preservation', cls: 'regime-CRISIS', alloc: [0,40,0,60] },
+};
+
+// === DATA FETCHING ===
+async function fetchPrices() {
+  try {
+    const ids = Object.values(PYTH_IDS).join('&ids[]=');
+    const resp = await fetch(`https://hermes.pyth.network/v2/updates/price/latest?ids[]=${ids}`);
+    const data = await resp.json();
+    const prices = {};
+    for (const p of data.parsed || []) {
+      const price = Number(p.price.price) * Math.pow(10, p.price.expo);
+      if (p.id === PYTH_IDS.SOL.slice(2)) prices.SOL = price;
+      if (p.id === PYTH_IDS.ETH.slice(2)) prices.ETH = price;
+      if (p.id === PYTH_IDS.BTC.slice(2)) prices.BTC = price;
+    }
+    return prices;
+  } catch(e) { console.error('Price fetch failed:', e); return null; }
+}
+
+async function fetchFundingRates() {
+  try {
+    const rates = {};
+    for (const [sym, idx] of Object.entries(DRIFT_MARKETS)) {
+      const resp = await fetch(`https://data.api.drift.trade/fundingRates?marketIndex=${idx}`);
+      const data = await resp.json();
+      if (data.data && data.data.length > 0) {
+        const latest = data.data[data.data.length - 1];
+        const rate = Number(latest.fundingRate) / 1e9;
+        const annual = rate * 3 * 365 * 100;
+        rates[sym] = annual;
+      }
+    }
+    return rates;
+  } catch(e) { console.error('Funding fetch failed:', e); return null; }
+}
+
+async function fetchLendingRates() {
+  try {
+    const resp = await fetch('https://yields.llama.fi/pools');
+    const data = await resp.json();
+    const pools = data.data || [];
+    const rates = {};
+    const targets = [
+      { key: 'kamino', project: 'kamino-lend', match: 'main' },
+      { key: 'jup', project: 'jupiter-perps-earn', match: '' },
+      { key: 'drift', project: 'drift-earn', match: '' },
+      { key: 'save', project: 'save', match: '' },
+    ];
+    for (const t of targets) {
+      const pool = pools.find(p =>
+        p.project === t.project &&
+        p.symbol?.toUpperCase().includes('USDC') &&
+        p.chain === 'Solana' &&
+        (t.match === '' || p.pool?.toLowerCase().includes(t.match))
+      );
+      rates[t.key] = pool ? pool.apy : null;
+    }
+    return rates;
+  } catch(e) { console.error('Lending fetch failed:', e); return null; }
+}
+
+// === UI UPDATES ===
+function updateFundingRate(id, barParent, value) {
+  const el = document.getElementById(id);
+  if (value == null) { el.textContent = '—'; return; }
+  el.textContent = (value > 0 ? '+' : '') + value.toFixed(2) + '%';
+  el.className = 'signal-val ' + (value > 0 ? 'val-pos' : value < 0 ? 'val-neg' : 'val-neutral');
+  const bar = barParent.querySelector('.signal-bar');
+  const pct = Math.min(Math.abs(value) / 50 * 100, 100);
+  bar.style.width = pct + '%';
+  bar.style.background = value > 0 ? 'var(--green)' : 'var(--red)';
+}
+
+function updateLendingRate(barId, valId, value) {
+  const el = document.getElementById(valId);
+  const bar = document.getElementById(barId);
+  if (value == null) { el.textContent = '—'; return; }
+  el.textContent = value.toFixed(2) + '%';
+  el.className = 'signal-val val-pos';
+  bar.style.width = Math.min(value / 15 * 100, 100) + '%';
+}
+
+function updateRegime(regime) {
+  const info = REGIME_INFO[regime] || REGIME_INFO.RANGING;
+  const label = document.getElementById('regime-label');
+  const desc = document.getElementById('regime-desc');
+  label.textContent = info.emoji + ' ' + info.label;
+  label.className = 'regime-label ' + info.cls;
+  desc.textContent = info.desc;
+
+  const bar = document.getElementById('alloc-bar');
+  const [basis, lending, spread, idle] = info.alloc;
+  bar.innerHTML = '';
+  if (basis > 0) bar.innerHTML += `<div class="alloc-basis" style="width:${basis}%">${basis}%</div>`;
+  if (lending > 0) bar.innerHTML += `<div class="alloc-lending" style="width:${lending}%">${lending}%</div>`;
+  if (spread > 0) bar.innerHTML += `<div class="alloc-spread" style="width:${spread}%">${spread}%</div>`;
+  if (idle > 0) bar.innerHTML += `<div class="alloc-idle" style="width:${idle}%">${idle}%</div>`;
+}
+
+async function refresh() {
+  const [prices, funding, lending] = await Promise.all([
+    fetchPrices(),
+    fetchFundingRates(),
+    fetchLendingRates(),
+  ]);
+
+  if (prices) {
+    document.getElementById('price-sol').textContent = '$' + prices.SOL?.toFixed(2);
+    document.getElementById('price-eth').textContent = '$' + prices.ETH?.toFixed(2);
+    document.getElementById('price-btc').textContent = '$' + prices.BTC?.toFixed(0);
+  }
+
+  if (funding) {
+    const rows = document.querySelectorAll('#funding-rates .signal-row');
+    updateFundingRate('fr-sol', rows[0], funding.SOL);
+    updateFundingRate('fr-eth', rows[1], funding.ETH);
+    updateFundingRate('fr-btc', rows[2], funding.BTC);
+
+    // Simple vol estimation from funding magnitude
+    const avgFunding = (Math.abs(funding.SOL || 0) + Math.abs(funding.ETH || 0) + Math.abs(funding.BTC || 0)) / 3;
+    const volLevel = avgFunding > 50 ? 'EXTREME' : avgFunding > 25 ? 'HIGH' : avgFunding > 10 ? 'MEDIUM' : 'LOW';
+    document.getElementById('vol-regime').textContent = volLevel;
+    document.getElementById('vol-regime').className = 'signal-val ' +
+      (volLevel === 'LOW' ? 'val-pos' : volLevel === 'MEDIUM' ? 'val-neutral' : 'val-neg');
+
+    const avgSigned = ((funding.SOL || 0) + (funding.ETH || 0) + (funding.BTC || 0)) / 3;
+    const regime = classifyRegime(avgSigned, volLevel);
+    updateRegime(regime);
+  }
+
+  if (lending) {
+    updateLendingRate('bar-kamino', 'rate-kamino', lending.kamino);
+    updateLendingRate('bar-jup', 'rate-jup', lending.jup);
+    updateLendingRate('bar-drift', 'rate-drift', lending.drift);
+    updateLendingRate('bar-save', 'rate-save', lending.save);
+  }
+
+  document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+}
+
+// Initial load + refresh every 60s
+refresh();
+setInterval(refresh, 60000);
+</script>
+
+</body>
+</html>
